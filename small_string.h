@@ -4,6 +4,7 @@
 // http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define small_size 6
 #define int_size 8
@@ -88,6 +89,64 @@ void SmallStrCpy(small_char* tgt, const small_char* src, uint16_t src_len);
  * @param b   second string
  */
 void SmallStrConcat(small_char* tgt, const small_char* a, const small_char* b, uint16_t alen, uint16_t blen);
+
+/**
+ * This method compares two small strings
+ * and returns whether they are equal. The caller
+ * is expected to have checked the lengths.
+ * @param a   the first string
+ * @param b   the second string
+ * @param len the length of each string
+ * @return a byte 0 if unequal and 1 if equal
+ */
+bool SmallStrEquals(const small_char* a, const small_char* b, uint16_t len);
+
+/**
+ * Returns the small character bits guaranteed
+ * to be in the form {@code 00xxxxxx} at a specified
+ * character index in the short string. The provided
+ * index is expected to be less than the character
+ * length of the small string.
+ * @param i  the character index to grab the bits
+ * @param ss the small string
+ * @return   the 6 bits of the character
+ */
+small_char SmallStrCharAt(uint16_t i, const small_char* ss);
+
+/**
+ * Set the character at the given character index
+ * to the 6 bits specified. The caller is expected
+ * to choose a valid character index, less than the
+ * character length of the string.
+ * @param i    the character index to set the bits
+ * @param bits the bits representing the 6-bit character
+ * @param ss   the small string to modify
+ */
+void SmallStrSetChar(uint16_t i, small_char bits, small_char* ss);
+
+/**
+ * Finds the first character index of a 6-bit
+ * character of the proper form in a small string.
+ * If the character is not found, returns the length
+ * @param c   the 6 bits of the character to search
+ * @param ss  the small string to search
+ * @param len the length of the small string
+ * @return the character index of the first occurrence or the length
+ */
+uint16_t SmallStrIndexOf(small_char bits, const small_char* ss, uint16_t len);
+
+/**
+ * Find and store a substring of a small string from
+ * a start character index and end index in a
+ * target small string. The range includes the start index
+ * and excludes the end index. The caller is expected to have
+ * allocated the appropriate memory of the target string.
+ * @param tgt the target string to write the substring
+ * @param ss  the source string to take the substring
+ * @param i   the start index, inclusive
+ * @param j   the end index, exclusive
+ */
+void SmallSubStr(small_char* tgt, const small_char* ss, uint16_t i, uint16_t j);
 
 /**
  * Write the bits of the small string as a string representation.

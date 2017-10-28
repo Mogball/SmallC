@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <stdbool.h>
+
 #include "small_string.h"
 
 void BitsForChar(
@@ -60,18 +62,10 @@ void FromCString(
         const char* const s,
         const uint16_t len
 ) {
-    uint16_t ptr = 0;
     for (uint16_t i = 0; i < len; i++) {
         uint8_t* bits = (uint8_t*) malloc(1);
         BitsForChar(s + i, bits);
-        for (uint8_t bit_ptr = small_size - 1;; bit_ptr--) {
-            uint8_t bit = (uint8_t) ((*bits >> bit_ptr) & 0x01);
-            SetBit(ss, ptr, bit);
-            ptr++;
-            if (bit_ptr == 0) {
-                break;
-            }
-        }
+        SmallStrSetChar(i, *bits, ss);
         free(bits);
     }
 }
@@ -81,15 +75,9 @@ void ToCString(
         char* const s,
         const uint16_t len
 ) {
-    uint16_t ptr = 0;
     for (uint16_t i = 0; i < len; i++) {
         uint8_t* bits = (uint8_t*) malloc(1);
-        *bits = 0;
-        for (uint8_t bit_ptr = 0; bit_ptr < small_size; bit_ptr++) {
-            uint8_t bit = (uint8_t) GetBit(ss, ptr);
-            *bits = (uint8_t) (bit ? (*bits << 1) | 1 : *bits << 1);
-            ptr++;
-        }
+        *bits = SmallStrCharAt(i, ss);
         CharForBits(s + i, bits);
         free(bits);
     }
@@ -135,15 +123,106 @@ void SmallStrConcat(
     }
 }
 
+bool SmallStrEquals(
+        const small_char* const a,
+        const small_char* const b,
+        const uint16_t len) {
+    uint16_t small_len = (uint16_t) SmallStringSize(len);
+    uint8_t n_extra_bits = (uint8_t) (small_len * int_size - small_size * len);
+    uint16_t i;
+    for (i = 0; i < len - 1; i++) {
+        if (a[i] != b[i]) {
+            return false;
+        }
+    }
+    uint8_t mask = (uint8_t) (0xff >> n_extra_bits);
+    return (a[i] & mask) == (b[i] & mask);
+}
+
+small_char SmallStrCharAt(
+        const uint16_t i,
+        const small_char* const ss
+) {
+    uint32_t char_start = (uint32_t) (i * small_size);
+    uint16_t index = (uint16_t) (char_start / int_size);
+    uint8_t mod = (uint8_t) (char_start % int_size);
+    // TODO use a more general method to extract the bits
+    switch(mod) {
+        case 0:
+            return (small_char) (ss[index] & 0x3f);
+        case 2:
+            return (small_char) (ss[index] >> 2);
+        case 4:
+            return (small_char) ((ss[index] >> 4) | (ss[index + 1] << 4) & 0x3f);
+        case 6:
+        default:
+            return (small_char) ((ss[index] >> 6) | (ss[index + 1] << 2) & 0x3f);
+    }
+}
+
+void SmallStrSetChar(const uint16_t i, const small_char bits, small_char* const ss) {
+    uint8_t c = (uint8_t) (bits & 0x3f);
+    uint32_t char_start = (uint32_t) (i * small_size);
+    uint16_t index = (uint16_t) (char_start / int_size);
+    uint8_t mod = (uint8_t) (char_start % int_size);
+    // TODO use a more general method to set the bits
+    switch(mod) {
+        case 0:
+            ss[index] = (small_char) (ss[index] & 0xc0 | c);
+            break;
+        case 2:
+            ss[index] = (small_char) (ss[index] & 0x03 | (c << 2));
+            break;
+        case 4:
+            ss[index] = (small_char) (ss[index] & 0x0f | (c << 4));
+            ss[index + 1] = (small_char) (ss[index + 1] & 0xfc | (c >> 4));
+            break;
+        case 6:
+        default:
+            ss[index] = (small_char) (ss[index] & 0x3f | (c << 6));
+            ss[index + 1] = (small_char) (ss[index + 1] & 0xf0 | (c >> 2));
+            break;
+    }
+}
+
+uint16_t SmallStrIndexOf(
+        const small_char bits,
+        const small_char* const ss,
+        const uint16_t len) {
+    for (uint16_t i = 0; i < len; i++) {
+        if (SmallStrCharAt(i, ss) == bits) {
+            return i;
+        }
+    }
+    return len;
+}
+
+void SmallSubStr(
+        small_char* const tgt,
+        const small_char* const ss,
+        const uint16_t i,
+        const uint16_t j
+) {
+    for (uint16_t k = i; k < j; k++) {
+        SmallStrSetChar(k - i, SmallStrCharAt(k, ss), tgt);
+    }
+}
+
 void WriteAsBits(
         char* const out,
         const small_char* const ss,
         const uint16_t len
 ) {
-    uint32_t n_bits = (uint32_t) (small_size * len);
-    uint32_t i;
-    for (i = 0; i < n_bits; i++) {
-        out[i] = (char) (GetBit(ss, i) ? '1' : '0');
+    uint32_t ptr = 0;
+    for (uint16_t i = 0; i < len; i++) {
+        uint32_t start = (uint32_t) ((i + 1) * small_size - 1);
+        uint32_t end = (uint32_t) (i * small_size);
+        for (uint32_t j = start;; j--) {
+            out[ptr++] = (char) (GetBit(ss, j) ? '1' : '0');
+            if (j == end) {
+                break;
+            }
+        }
     }
-    out[i] = '\0';
+    out[ptr] = '\0';
 }
