@@ -1,5 +1,175 @@
 #include <stdio.h>
 #include "small_json.h"
+#include "stack.h"
+
+HashTable* IndexJson(
+        const small_char* const json,
+        const uint16_t len
+) {
+    Stack* stack = MakeStack(len);
+    uint16_t elements = 0;
+    for (uint16_t i = 0; i < len; i++) {
+        small_char c = SmallStrCharAt(i, json);
+        if (c == L_CRL || c == L_SQR) {
+            Push(stack, c);
+        } else if (c == QUOTE) {
+            if (Peek(stack) != QUOTE) {
+                Push(stack, c);
+            } else {
+                Pop(stack);
+                elements++;
+            }
+        } else if (c == R_CRL || c == R_SQR) {
+            Pop(stack);
+            elements++;
+        } else if (IsNumeric(c) && Peek(stack) != QUOTE) {
+            i = _GetLastIndexOfNumber(json, i, len);
+            elements++;
+        } else if ((c == N || c == T || c == F) && Peek(stack) != QUOTE) {
+            i += c == F ? 4 : 3;
+            elements++;
+        }
+    }
+    HashTable* table = MakeTable((uint16_t) (elements * 1.618f));
+    DestroyStack(stack);
+    Stack* startPos = MakeStack((uint16_t) (elements * 2));
+    stack = MakeStack((uint16_t) (elements * 2));
+    for (uint16_t i = 0; i < len; i++) {
+        small_char c = SmallStrCharAt(i, json);
+        if (c == L_CRL || c == L_SQR) {
+            Push(stack, c);
+            Push(startPos, i);
+        } else if (c == QUOTE) {
+            if (Peek(stack) != QUOTE) {
+                Push(stack, c);
+                Push(startPos, i);
+            } else {
+                Pop(stack);
+                TablePut(table, Pop(startPos), i);
+            }
+        } else if (c == R_CRL || c == R_SQR) {
+            Pop(stack);
+            TablePut(table, Pop(startPos), i);
+        } else if (IsNumeric(c) && Peek(stack) != QUOTE) {
+            uint16_t end = _GetLastIndexOfNumber(json, i, len);
+            TablePut(table, i, end);
+            i = end;
+        } else if ((c == N || c == T || c == F) && Peek(stack) != QUOTE) {
+            uint16_t end = (uint16_t) (i + (c == F ? 4 : 3));
+            TablePut(table, i, end);
+            i = end;
+        }
+    }
+    DestroyStack(startPos);
+    DestroyStack(stack);
+    return table;
+}
+
+bool JsonObjectContainsKey(
+        const JsonElement* const object,
+        const HashTable* const table,
+        const small_char* const key
+) {
+    uint16_t i = (uint16_t) (object->start + 1);
+    while (i < object->end) {
+        uint16_t end = TableGet(table, i);
+
+    }
+}
+
+JsonElement AsJsonElement(
+        const small_char* const json,
+        const uint16_t len
+) {
+    JsonElement element;
+    element.json = json;
+    element.start = 0;
+    element.end = len;
+    return element;
+}
+
+bool IsJsonObject(const JsonElement* const element) {
+    if (SmallStrCharAt(element->start, element->json) != L_CRL) {
+        return false;
+    }
+    if (SmallStrCharAt(element->end, element->json) != R_CRL) {
+        return false;
+    }
+    return true;
+}
+
+bool IsJsonArray(const JsonElement* const element) {
+    if (SmallStrCharAt(element->start, element->json) != L_SQR) {
+        return false;
+    }
+    if (SmallStrCharAt(element->end, element->json) != R_SQR) {
+        return false;
+    }
+    return true;
+}
+
+bool IsJsonString(const JsonElement* const element) {
+    if (element->end - element->start < 2) {
+        return false;
+    }
+    if (SmallStrCharAt(element->start, element->json) != QUOTE) {
+        return false;
+    }
+    if (SmallStrCharAt(element->end, element->json) != QUOTE) {
+        return false;
+    }
+    return true;
+}
+
+bool IsJsonPrimitive(const JsonElement* const element) {
+    small_char c = SmallStrCharAt(element->start, element->json);
+    if (c == L_CRL || c == R_CRL || c == L_SQR || c == R_SQR) {
+        return false;
+    }
+    if (IsSegmentNumber(element->json, element->start, element->end)) {
+        return true;
+    }
+    if (IsJsonString(element)) {
+        return true;
+    }
+    if (IsSegmentBool(element->json, element->start, element->end)) {
+        return true;
+    }
+    if (IsSegmentNull(element->json, element->start, element->end)) {
+        return true;
+    }
+    return false;
+}
+
+uint8_t GetPrimitiveType(const JsonElement* const element) {
+    if (IsSegmentNumber(element->json, element->start, element->end)) {
+        return NUMBER;
+    }
+    if (IsJsonString(element)) {
+        return STRING;
+    }
+    if (IsSegmentBool(element->json, element->start, element->end)) {
+        return BOOL;
+    }
+    if (IsSegmentNull(element->json, element->start, element->end)) {
+        return NIL;
+    }
+    return NONE;
+}
+
+uint8_t GetElementType(const JsonElement* const element) {
+    uint8_t type = GetPrimitiveType(element);
+    if (type != NONE) {
+        return type;
+    }
+    if (IsJsonObject(element)) {
+        return OBJECT;
+    }
+    if (IsJsonArray(element)) {
+        return ARRAY;
+    }
+    return NONE;
+}
 
 bool ValidateSmallJson(
         const small_char* const ss,

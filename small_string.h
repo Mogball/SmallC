@@ -68,6 +68,10 @@ typedef uint8_t small_char;
 #define T 0x14
 #define U 0x15
 
+#define ssTRUE  ((const small_char *const) "\x94\x54\x15")
+#define ssFALSE ((const small_char *const) "\x46\xc0\x4c\x05")
+#define ssNULL  ((const small_char *const) "\x4e\xc5\x30")
+
 /**
  * Convert a basic C string into a small string. The caller
  * should allocate the space for the small string, given
@@ -156,6 +160,13 @@ void SmallStrSetChar(uint16_t i, small_char bits, small_char* ss);
  */
 uint16_t SmallStrIndexOf(small_char bits, const small_char* ss, uint16_t len);
 
+uint16_t SegmentIndexOf(
+        small_char bits,
+        const small_char* ss,
+        uint16_t start,
+        uint16_t end
+);
+
 /**
  * Find and store a substring of a small string from
  * a start character index and end index in a
@@ -168,7 +179,6 @@ uint16_t SmallStrIndexOf(small_char bits, const small_char* ss, uint16_t len);
  * @param j   the end index, exclusive
  */
 void SmallSubStr(small_char* tgt, const small_char* ss, uint16_t i, uint16_t j);
-
 
 void _PopulateKmpTable(
         const small_char* w,
@@ -199,6 +209,40 @@ bool IsNumber(const small_char* ss, uint16_t len);
 bool IsBool(const small_char* ss, uint16_t len);
 bool IsNull(const small_char* ss, uint16_t len);
 small_char* MakeSmallString(const char* str, uint16_t len);
+
+bool AreSegmentsEqual(
+        const small_char* a,
+        const small_char* b,
+        uint16_t a_start, // inclusive
+        uint16_t a_end,   // exclusive
+        uint16_t b_start, // inclusive
+        uint16_t b_end    // exclusive
+);
+
+bool IsSegmentNumber(
+        const small_char* ss,
+        uint16_t start,
+        uint16_t end
+);
+
+bool IsSegmentBool(
+        const small_char* ss,
+        uint16_t start,
+        uint16_t end
+);
+
+bool IsSegmentNull(
+        const small_char* ss,
+        uint16_t start,
+        uint16_t end
+);
+
+void SegmentToCString(
+        const small_char* ss,
+        uint16_t start,
+        uint16_t end,
+        char* s
+);
 
 /**
  * Write the bits of the small string as a string representation.

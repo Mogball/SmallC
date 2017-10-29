@@ -5,8 +5,13 @@ Stack* MakeStack(const uint16_t capacity) {
     Stack* stack = (Stack*) malloc(sizeof(Stack));
     stack->capacity = capacity;
     stack->top = -1;
-    stack->array = (small_char*) malloc((size_t) (stack->capacity * int_size));
+    stack->array = (uint16_t*) malloc(stack->capacity * sizeof(uint16_t));
     return stack;
+}
+
+void DestroyStack(Stack* stack) {
+    free(stack->array);
+    free(stack);
 }
 
 bool IsFull(const Stack* const stack) {
@@ -17,7 +22,7 @@ bool IsEmpty(const Stack* const stack) {
     return stack->top == -1;
 }
 
-bool Push(Stack* const stack, const small_char item) {
+bool Push(Stack* const stack, const uint16_t item) {
     if (IsFull(stack)) {
         return false;
     }
@@ -25,16 +30,16 @@ bool Push(Stack* const stack, const small_char item) {
     return true;
 }
 
-small_char Pop(Stack* const stack) {
+uint16_t Pop(Stack* const stack) {
     if (IsEmpty(stack)) {
-        return '\0';
+        return EMPTY;
     }
     return stack->array[stack->top--];
 }
 
-small_char Peek(const Stack* const stack) {
+uint16_t Peek(const Stack* const stack) {
     if (IsEmpty(stack)) {
-        return '\0';
+        return EMPTY;
     }
     return stack->array[stack->top];
 }

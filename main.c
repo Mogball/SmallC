@@ -432,6 +432,44 @@ int Test_ValidateJsonInvalid() {
     return 1;
 }
 
+int Test_IsBool() {
+    small_char* ss = MakeSmallString("true", 4);
+    if (!IsBool(ss, 4)) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    ss = MakeSmallString("make", 4);
+    if (IsBool(ss, 4)) {
+        free(ss);
+        return 0;
+    }
+    if (IsNull(ss, 4)) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    ss = MakeSmallString("false", 5);
+    if (!IsBool(ss, 5)) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    ss = MakeSmallString("gucci", 5);
+    if (IsBool(ss, 5)) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    ss = MakeSmallString("null", 4);
+    if (!IsNull(ss, 4)) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
 int main() {
     printf("FromCStringAndToCString: %i\n", Test_FromCStringAndToCString());
     printf("SmallStrCpy: %i\n", Test_SmallStrCpy());
@@ -450,4 +488,5 @@ int main() {
     printf("_ValidateObject: %i\n", Test_ValidateObject());
     printf("ValidateSmallJson: %i\n", Test_ValidateJson());
     printf("ValidateSmallJsonInvalid: %i\n", Test_ValidateJsonInvalid());
+    printf("IsBool: %i\n", Test_IsBool());
 }

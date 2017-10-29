@@ -79,15 +79,23 @@ void FromCString(
 }
 
 void ToCString(
-        const uint8_t* const ss,
+        const small_char* const ss,
         char* const s,
         const uint16_t len
 ) {
-    for (uint16_t i = 0; i < len; i++) {
-        uint8_t* bits = (uint8_t*) malloc(1);
-        *bits = SmallStrCharAt(i, ss);
-        CharForBits(s + i, bits);
-        free(bits);
+    SegmentToCString(ss, 0, len, s);
+}
+
+void SegmentToCString(
+        const small_char* const ss,
+        const uint16_t start,
+        const uint16_t end,
+        char* const s
+) {
+    small_char bits;
+    for (uint16_t i = start; i < end; i++) {
+        bits = SmallStrCharAt(i, ss);
+        CharForBits(s + i - start, &bits);
     }
 }
 
@@ -138,13 +146,33 @@ bool SmallStrEquals(
     uint16_t small_len = (uint16_t) SmallStringSize(len);
     uint8_t n_extra_bits = (uint8_t) (small_len * int_size - small_size * len);
     uint16_t i;
-    for (i = 0; i < len - 1; i++) {
+    for (i = 0; i < small_len - 1; i++) {
         if (a[i] != b[i]) {
             return false;
         }
     }
     uint8_t mask = (uint8_t) (0xff >> n_extra_bits);
     return (a[i] & mask) == (b[i] & mask);
+}
+
+bool AreSegmentsEqual(
+        const small_char *const a,
+        const small_char *const b,
+        const uint16_t a_start,
+        const uint16_t a_end,
+        const uint16_t b_start,
+        const uint16_t b_end
+) {
+    uint16_t len = a_end - a_start;
+    if (b_end - b_start != len) {
+        return false;
+    }
+    for (uint16_t i = 0; i < len; i++) {
+        if (SmallStrCharAt(a_start + i, a) != SmallStrCharAt(b_start + i, b)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 small_char SmallStrCharAt(
@@ -197,12 +225,21 @@ uint16_t SmallStrIndexOf(
         const small_char bits,
         const small_char* const ss,
         const uint16_t len) {
-    for (uint16_t i = 0; i < len; i++) {
+    return SegmentIndexOf(bits, ss, 0, len);
+}
+
+uint16_t SegmentIndexOf(
+        const small_char bits,
+        const small_char* const ss,
+        const uint16_t start,
+        const uint16_t end
+) {
+    for (uint16_t i = start; i < end; i++) {
         if (SmallStrCharAt(i, ss) == bits) {
             return i;
         }
     }
-    return len;
+    return end;
 }
 
 void SmallSubStr(
@@ -306,13 +343,24 @@ bool IsNumber(
         const small_char* const ss,
         const uint16_t len
 ) {
-    if (ss == NULL || *ss == 0x00 || len == 0) {
+    if (ss == NULL || *ss == 0x00) {
+        return false;
+    }
+    return IsSegmentNumber(ss, 0, len);
+}
+
+bool IsSegmentNumber(
+        const small_char* const ss,
+        const uint16_t start,
+        const uint16_t end
+) {
+    if (end == start) {
         return false;
     }
     // TODO directly check the small string
-    char* c_str = (char*) malloc(len);
+    char* c_str = (char*) malloc(end - start);
     char* p;
-    ToCString(ss, c_str, len);
+    SegmentToCString(ss, start, end, c_str);
     strtof(c_str, &p);
     free(c_str);
     return *p == '\0';
@@ -325,6 +373,58 @@ small_char* MakeSmallString(
     small_char* ss = (small_char*) malloc((size_t) SmallStringSize(len));
     FromCString(ss, str, len);
     return ss;
+}
+
+bool IsBool(
+        const small_char* const ss,
+        const uint16_t len
+) {
+    if (len != 4 && len != 5) {
+        return false;
+    }
+    if (len == 4) {
+        return SmallStrEquals(ss, ssTRUE, 4);
+    } else {
+        return SmallStrEquals(ss, ssFALSE, 5);
+    }
+}
+
+bool IsSegmentBool(
+        const small_char* const ss,
+        const uint16_t start,
+        const uint16_t end
+) {
+    uint16_t len = end - start;
+    if (len != 4 && len != 5) {
+        return false;
+    }
+    if (len == 4) {
+        return AreSegmentsEqual(ss, ssTRUE, start, end, 0, 4);
+    } else {
+        return AreSegmentsEqual(ss, ssFALSE, start, end, 0, 5);
+    }
+}
+
+bool IsNull(
+        const small_char* const ss,
+        const uint16_t len
+) {
+    if (len != 4) {
+        return false;
+    }
+    bool f = SmallStrEquals(ss, ssNULL, 4);
+    return f;
+}
+
+bool IsSegmentNull(
+        const small_char* const ss,
+        const uint16_t start,
+        const uint16_t end
+) {
+    if (end - start != 4) {
+        return false;
+    }
+    return AreSegmentsEqual(ss, ssNULL, start, end, 0, 4);
 }
 
 void WriteAsBits(
