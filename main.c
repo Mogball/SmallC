@@ -2,6 +2,15 @@
 #include <stdlib.h>
 #include <printf.h>
 #include "small_string.h"
+#include "small_json.h"
+
+int Do_TestEquals(int expected, int actual) {
+    if (expected != actual) {
+        printf("Expected %i but got %i\n", expected, actual);
+        return 0;
+    }
+    return 1;
+}
 
 int Test_FromCStringAndToCStringEmptyString() {
     char str[] = "";
@@ -237,6 +246,192 @@ int Test_SmallStrIndexOfStr() {
     return pass;
 }
 
+int Test_IsNumber() {
+    char str1[] = "12341.514e10";
+    char str2[] = "-35.033332345";
+    char str3[] = "445hgfsl.";
+    char str4[] = "5436625..e";
+    uint16_t len = (uint16_t) strlen(str1);
+    small_char* ss = MakeSmallString(str1, len);
+    if (!IsNumber(ss, len)) {
+        free(ss);
+        return 0;
+    }
+    len = (uint16_t) strlen(str2);
+    free(ss);
+    ss = MakeSmallString(str2, len);
+    if (!IsNumber(ss, len)) {
+        free(ss);
+        return 0;
+    }
+    len = (uint16_t) strlen(str3);
+    free(ss);
+    ss = MakeSmallString(str3, len);
+    if (IsNumber(ss, len)) {
+        free(ss);
+        return 0;
+    }
+    len = (uint16_t) strlen(str4);
+    free(ss);
+    ss = MakeSmallString(str4, len);
+    if (IsNumber(ss, len)) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
+int Test_NextToken() {
+    char str[] = "{\"hello\":\"my_name\",\"is\":[1,5,5.602,43.34e10],\"9\":true}";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* ss = MakeSmallString(str, len);
+    uint16_t index = len;
+    uint16_t* pIndex = &index;
+    if (!Do_TestEquals(NONE, _NextToken(ss, pIndex, len))) {
+        free(ss);
+        return 0;
+    }
+    index = 0;
+    if (!Do_TestEquals(L_CRL, _NextToken(ss, pIndex, len)) || *pIndex != 1) {
+        free(ss);
+        return 0;
+    }
+    index = 8;
+    if (!Do_TestEquals(COLON, _NextToken(ss, pIndex, len)) || *pIndex != 9) {
+        free(ss);
+        return 0;
+    }
+    index = 29;
+    if (!Do_TestEquals(NUMBER, _NextToken(ss, pIndex, len)) || *pIndex != 30) {
+        free(ss);
+        return 0;
+    }
+    index = 49;
+    if (!Do_TestEquals(TRUE, _NextToken(ss, pIndex, len)) || *pIndex != 53) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
+int Test_GetLastIndexOfNumber() {
+    char str[] = "___fjeajew-68385.3413fge";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* ss = MakeSmallString(str, len);
+    uint16_t index = 10;
+    if (!Do_TestEquals(20, _GetLastIndexOfNumber(ss, index, len))) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
+int Test_ValidateNumber() {
+    char str[] = "__324..5424ee33..agsdf";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* ss = MakeSmallString(str, len);
+    uint16_t index = 2;
+    if (!Do_TestEquals(false, _ValidateNumber(ss, &index, len)) || index != 17) {
+        free(ss);
+        return 0;
+    }
+    char str0[] = "{{[\"\":-3453.3434gaf]gr}}";
+    len = (uint16_t) strlen(str0);
+    free(ss);
+    ss = MakeSmallString(str0, len);
+    index = 0;
+    uint16_t token = NONE;
+    while (token != NUMBER && index < len){
+        token = _NextToken(ss, &index, len);
+    }
+    index--;
+    if (!Do_TestEquals(true, _ValidateValue(ss, &index, len)) || index != 16) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
+int Test_ValidateString() {
+    char str[] = "{{\"hello\":\"my_name_is\"}}";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* ss = MakeSmallString(str, len);
+    uint16_t index = 0;
+    while(_NextToken(ss, &index, len) != STRING && index < len);
+    if (!Do_TestEquals(true, _ValidateString(ss, &index, len)) || index != 9) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
+int Test_ValidateArray() {
+    char str[] = "{\"array\":[\"hello\",\"my_name\",\"is\",\"jeff\"],\"value\":34.63}";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* ss = MakeSmallString(str, len);
+    uint16_t index = 9;
+    if (!Do_TestEquals(true, _ValidateArray(ss, &index, len)) || index != 40) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
+int Test_ValidateObject() {
+    char str[] = "{\"array\":[\"hello\",\"my_name\",\"is\",\"jeff\"],\"value\":34.63}";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* ss = MakeSmallString(str, len);
+    uint16_t index = 0;
+    if (!Do_TestEquals(true, _ValidateObject(ss, &index, len)) || index != len) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
+int Test_ValidateJson() {
+    char str[] = "{\"items\":{\"item\":[{\"id\":\"0001\",\"type\":\"donut\",\"name\":null,\"ppu\":0.55,"
+            "\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"regular\"},{\"id\":\"1002\",\"type\":\"ch"
+            "ocolate\"},{\"id\":\"1003\",\"type\":\"blueberry\"},{\"id\":\"1004\",\"type\":\"devils_food\"}"
+            "]},\"topping\":[{\"id\":\"5001\",\"type\":\"none\"},{\"id\":\"5002\",\"type\":\"glazed\"},{\"i"
+            "d\":\"5005\",\"type\":\"sugar\"},{\"id\":true,\"type\":\"powdered_sugar\"},{\"id\":\"5006"
+            "\",\"type\":\"chocolate_with_sprinkles\"},{\"id\":\"5003\",\"type\":\"chocolate\"},{\"id\":\""
+            "5004\",\"type\":\"maple\"}]}]}}";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* ss = MakeSmallString(str, len);
+    if (!Do_TestEquals(true, ValidateSmallJson(ss, len))) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
+int Test_ValidateJsonInvalid() {
+    char str[] = "{\"items\":{\"item\":[{\"id\":\"0001\",\"type\":\"donut\",\"name\":\"cake\",\"ppu\":0.55,"
+            "\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"regular\"},{\"id\":\"1002\",\"type\":\"ch"
+            "ocolate\"},{\"id\":\"1003\",\"type\":\"blueberry\"},{\"id\":\"1004\",\"type\":\"devils_food\"}"
+            "]},\"topping\":[{\"id\":\"5001\",\"type\":\"none\"}},{\"id\":\"5002\",\"type\":\"glazed\"},{\"i"
+            "d\":\"5005\",\"type\":\"sugar\"},{\"id\":\"5007\",\"type\":\"powdered_sugar\"},{\"id\":\"5006"
+            "\",\"type\":\"chocolate_with_sprinkles\"},{\"id\":\"5003\",\"type\":\"chocolate\"},{\"id\":\""
+            "5004\",\"type\":\"maple\"}]}]}}";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* ss = MakeSmallString(str, len);
+    if (!Do_TestEquals(false, ValidateSmallJson(ss, len))) {
+        free(ss);
+        return 0;
+    }
+    free(ss);
+    return 1;
+}
+
 int main() {
     printf("FromCStringAndToCString: %i\n", Test_FromCStringAndToCString());
     printf("SmallStrCpy: %i\n", Test_SmallStrCpy());
@@ -246,4 +441,13 @@ int main() {
     printf("SmallStrIndexOf: %i\n", Test_SmallStrIndexOf());
     printf("SmallSubStr: %i\n", Test_SmallSubStr());
     printf("SmallStrIndexOfStr: %i\n", Test_SmallStrIndexOfStr());
+    printf("IsNumber: %i\n", Test_IsNumber());
+    printf("_NextToken: %i\n", Test_NextToken());
+    printf("_GetLastIndexOfNumber: %i\n", Test_GetLastIndexOfNumber());
+    printf("_ValidateNumber: %i\n", Test_ValidateNumber());
+    printf("_ValidateString: %i\n", Test_ValidateString());
+    printf("_ValidateArray: %i\n", Test_ValidateArray());
+    printf("_ValidateObject: %i\n", Test_ValidateObject());
+    printf("ValidateSmallJson: %i\n", Test_ValidateJson());
+    printf("ValidateSmallJsonInvalid: %i\n", Test_ValidateJsonInvalid());
 }

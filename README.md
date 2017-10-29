@@ -10,12 +10,5 @@ that extra 25% memory. These are
 * `{ } [ ] ( ) : ; ' " , . % & - _ + = ! #`
 * `| ~ \0 / > < ^ *`
 
-## Super Small String
-String using 4-bit characters, when you <strong>really</strong>
-need the extra 50% memory.
-
-* The ten digits `0` to `9`
-* `{ } [ ] : ,`
-
 ## Small JSON
 A minimalistic JSON implementation using `small_string`

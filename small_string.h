@@ -47,6 +47,27 @@ void CharForBits(char* c, const uint8_t* bits);
  */
 typedef uint8_t small_char;
 
+#define L_CRL 0x3c
+#define R_CRL 0x3e
+#define L_SQR 0x38
+#define R_SQR 0x39
+#define COLON 0x33
+#define COMMA 0x2f
+#define QUOTE 0x1c
+#define MINUS 0x30
+#define PLUS  0x2e
+#define DOT   0x31
+
+#define A 0x01
+#define E 0x05
+#define F 0x06
+#define L 0x0c
+#define N 0x0e
+#define R 0x12
+#define S 0x13
+#define T 0x14
+#define U 0x15
+
 /**
  * Convert a basic C string into a small string. The caller
  * should allocate the space for the small string, given
@@ -148,11 +169,13 @@ uint16_t SmallStrIndexOf(small_char bits, const small_char* ss, uint16_t len);
  */
 void SmallSubStr(small_char* tgt, const small_char* ss, uint16_t i, uint16_t j);
 
+
 void _PopulateKmpTable(
         const small_char* w,
         int16_t* table,
         uint16_t len
 );
+
 uint16_t _PerformKmpSearch(
         const small_char* ss,
         const small_char* w,
@@ -163,7 +186,19 @@ uint16_t _PerformKmpSearch(
         bool findFirst
 );
 
-uint16_t SmallStrIndexOfStr(const small_char* ss, const small_char* w, uint16_t ss_len, uint16_t w_len);
+uint16_t SmallStrIndexOfStr(
+        const small_char* ss,
+        const small_char* w,
+        uint16_t ss_len,
+        uint16_t w_len
+);
+
+bool IsNumeric(small_char c);
+bool IsLetter(small_char c);
+bool IsNumber(const small_char* ss, uint16_t len);
+bool IsBool(const small_char* ss, uint16_t len);
+bool IsNull(const small_char* ss, uint16_t len);
+small_char* MakeSmallString(const char* str, uint16_t len);
 
 /**
  * Write the bits of the small string as a string representation.

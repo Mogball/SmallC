@@ -57,6 +57,14 @@ void CharForBits(
     }
 }
 
+bool IsNumeric(const small_char c) {
+    return 0x20 <= c && c <= 0x29;
+}
+
+bool IsLetter(const small_char c) {
+    return 0x01 <= c <= 0x1a;
+}
+
 void FromCString(
         small_char* const ss,
         const char* const s,
@@ -292,6 +300,31 @@ uint16_t SmallStrIndexOfStr(
     uint16_t index = _PerformKmpSearch(ss, w, ss_len, w_len, table, NULL, true);
     free(table);
     return index;
+}
+
+bool IsNumber(
+        const small_char* const ss,
+        const uint16_t len
+) {
+    if (ss == NULL || *ss == 0x00 || len == 0) {
+        return false;
+    }
+    // TODO directly check the small string
+    char* c_str = (char*) malloc(len);
+    char* p;
+    ToCString(ss, c_str, len);
+    strtof(c_str, &p);
+    free(c_str);
+    return *p == '\0';
+}
+
+small_char* MakeSmallString(
+        const char* const str,
+        const uint16_t len
+) {
+    small_char* ss = (small_char*) malloc((size_t) SmallStringSize(len));
+    FromCString(ss, str, len);
+    return ss;
 }
 
 void WriteAsBits(
