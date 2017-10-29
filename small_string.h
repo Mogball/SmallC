@@ -148,6 +148,23 @@ uint16_t SmallStrIndexOf(small_char bits, const small_char* ss, uint16_t len);
  */
 void SmallSubStr(small_char* tgt, const small_char* ss, uint16_t i, uint16_t j);
 
+void _PopulateKmpTable(
+        const small_char* w,
+        int16_t* table,
+        uint16_t len
+);
+uint16_t _PerformKmpSearch(
+        const small_char* ss,
+        const small_char* w,
+        uint16_t ss_len,
+        uint16_t w_len,
+        const int16_t* table,
+        uint16_t* result,
+        bool findFirst
+);
+
+uint16_t SmallStrIndexOfStr(const small_char* ss, const small_char* w, uint16_t ss_len, uint16_t w_len);
+
 /**
  * Write the bits of the small string as a string representation.
  * The caller should allocate enough characters for each bit in

@@ -208,6 +208,92 @@ void SmallSubStr(
     }
 }
 
+void _PopulateKmpTable(
+        const small_char* const w,
+        int16_t* const table,
+        const uint16_t len
+) {
+    int16_t pos = 1;
+    int16_t cnd = 0;
+    table[0] = -1;
+    while (pos < len) {
+        if (SmallStrCharAt((const uint16_t) pos, w) == SmallStrCharAt((const uint16_t) cnd, w)) {
+            table[pos] = table[cnd];
+            pos++;
+            cnd++;
+        } else {
+            table[pos] = cnd;
+            cnd = table[cnd];
+            while (cnd >= 0 && (SmallStrCharAt((const uint16_t) pos, w) != SmallStrCharAt((const uint16_t) cnd, w))) {
+                cnd = table[cnd];
+            }
+            pos++;
+            cnd++;
+        }
+    }
+    table[pos]= cnd;
+}
+
+uint16_t _PerformKmpSearch(
+        const small_char* const ss,
+        const small_char* const w,
+        const uint16_t ss_len,
+        const uint16_t w_len,
+        const int16_t* const table,
+        uint16_t* const result,
+        bool findFirst
+) {
+    int16_t m = 0;
+    int16_t i = 0;
+    int16_t nP = 0;
+    while (m + i < ss_len) {
+        if (SmallStrCharAt((const uint16_t) i, w) == SmallStrCharAt((const uint16_t) (m + i), ss)) {
+            i++;
+            if (i == w_len) {
+                if (findFirst) {
+                    return (uint16_t) m;
+                }
+                result[nP] = (uint16_t) m;
+                nP++;
+                m = m + i - table[i];
+                i = table[i];
+            }
+        } else {
+            if (table[i] > -1) {
+                m = m + i - table[i];
+                i = table[i];
+            } else {
+                m = (int16_t) (m + i + 1);
+                i = 0;
+            }
+        }
+    }
+    if (findFirst) {
+        return ss_len;
+    } else {
+        return (uint16_t) nP;
+    }
+}
+
+uint16_t SmallStrIndexOfStr(
+        const small_char* const ss,
+        const small_char* const w,
+        const uint16_t ss_len,
+        const uint16_t w_len
+) {
+    if (w_len == 0) {
+        return ss_len;
+    }
+    if (ss_len == 0) {
+        return 0;
+    }
+    int16_t* table = (int16_t*) malloc(sizeof(int16_t) * w_len);
+    _PopulateKmpTable(w, table, w_len);
+    uint16_t index = _PerformKmpSearch(ss, w, ss_len, w_len, table, NULL, true);
+    free(table);
+    return index;
+}
+
 void WriteAsBits(
         char* const out,
         const small_char* const ss,
