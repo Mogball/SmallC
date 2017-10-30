@@ -20,6 +20,7 @@ typedef struct HashTable {
 HashTable* MakeTable(uint16_t size, float max_load);
 void DestroyTable(HashTable* table);
 
+void _TableRehash(HashTable* table);
 uint16_t _Hash(uint16_t i);
 
 void TablePut(HashTable* table, uint16_t key, uint16_t value);
