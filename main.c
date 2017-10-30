@@ -55,7 +55,7 @@ int Test_SmallStrCpyEmptyString() {
     small_char* ss = (small_char*) malloc(small_size);
     small_char* nss = (small_char*) malloc(small_size);
     FromCString(ss, str, 0);
-    SmallStrCpy(nss, ss, 0);
+    SmallStrCopy(nss, ss, 0);
     char* nstr = (char*) malloc(small_size);
     ToCString(nss, nstr, 0);
     uint8_t pass = (uint8_t) (strlen(nstr) == 0);
@@ -72,7 +72,7 @@ int Test_SmallStrCpy() {
     small_char* ss = (small_char*) malloc(small_len);
     FromCString(ss, str, len);
     small_char* tss = (small_char*) malloc(small_len);
-    SmallStrCpy(tss, ss, len);
+    SmallStrCopy(tss, ss, len);
     char* nstr = (char*) malloc(len);
     ToCString(tss, nstr, len);
     uint8_t equal = 1;
@@ -470,6 +470,199 @@ int Test_IsBool() {
     return 1;
 }
 
+int Test_HashTable() {
+    HashTable* table = MakeTable(5, 0.75f);
+    uint16_t vals[12][2] = {
+            {45, 5321},
+            {21, 6883},
+            {67, 4512},
+            {10, 3433},
+            {11, 1111},
+            {90, 5023},
+            {78, 5566},
+            {4332, 32451},
+            {6653, 12354},
+            {9583, 59304},
+            {6737, 63752},
+            {4573, 33322},
+    };
+    for (uint16_t i = 0; i < 12; i++) {
+        TablePut(table, vals[i][0], vals[i][1]);
+    }
+    for (uint16_t i = 0; i < 12; i++) {
+        uint16_t result = TableGet(table, vals[i][0]);
+        if (result != vals[i][1]) {
+            printf("%i: Expected %i but got %i with key %i", i, vals[i][1], result, vals[i][0]);
+            DestroyTable(table);
+            return 0;
+        }
+    }
+    DestroyTable(table);
+    return 1;
+}
+
+int Test_JsonObjectGetValue() {
+    char json[] = "{\"items\":[1,2,3,4,5],\"key\":\"value\",\"gucci\":{\"a\":\"letter_a\",\"b\":\"letter_b\""
+            ",\"something\":{\"16\":-1434.23,\"always\":true}}}";
+    uint16_t len = (uint16_t) strlen(json);
+    small_char* ss = MakeSmallString(json, len);
+    HashTable* index = IndexJson(ss, len);
+    if (!ValidateSmallJson(ss, len)) {
+        free(ss);
+        DestroyTable(index);
+        return 0;
+    }
+    JsonElement element = AsJsonElement(ss, len);
+    if (!IsJsonObject(&element)) {
+        free(ss);
+        DestroyTable(index);
+        return 0;
+    }
+    small_char* key = MakeSmallString("items", 5);
+    JsonElement array = JsonObjectGetValue(&element, index, key, 5);
+    if (array.end != 20 || array.start != 9 || !IsJsonArray(&array) || GetElementType(&array) != ARRAY) {
+        free(ss);
+        free(key);
+        DestroyTable(index);
+        return 0;
+    }
+    free(key);
+    key = MakeSmallString("key", 3);
+    JsonElement string = JsonObjectGetValue(&element, index, key, 3);
+    if (string.start != 27 || string.end != 34 || !IsJsonString(&string) || GetElementType(&string) != STRING) {
+        free(ss);
+        free(key);
+        DestroyTable(index);
+        return 0;
+    }
+    uint16_t str_len = JsonStringLength(&string);
+    small_char* str_val = (small_char*) malloc((size_t) SmallStringSize(str_len));
+    JsonStringGet(&string, str_val);
+    char* c_str_val = (char*) malloc(str_len + 1);
+    ToCString(str_val, c_str_val, str_len);
+    c_str_val[str_len] = '\0';
+    char expected_str[] = "value";
+    free(str_val);
+    free(key);
+    for (uint16_t i = 0; i < str_len; i++) {
+        if (expected_str[i] != c_str_val[i]) {
+            free(c_str_val);
+            free(ss);
+            DestroyTable(index);
+            return 0;
+        }
+    }
+    free(c_str_val);
+    key = MakeSmallString("gucci", 5);
+    JsonElement object = JsonObjectGetValue(&element, index, key, 5);
+    if (!IsJsonObject(&object) || object.start != 43 || object.end != 116 || GetElementType(&object) != OBJECT) {
+        free(ss);
+        free(key);
+        DestroyTable(index);
+        return 0;
+    }
+    free(key);
+    key = MakeSmallString("something", 9);
+    JsonElement subobj = JsonObjectGetValue(&object, index, key, 9);
+    if (
+            !JsonObjectContainsKey(&object, index, key, 9) ||
+            !IsJsonObject(&subobj) ||
+            GetElementType(&subobj) != OBJECT ||
+            subobj.start != 86 ||
+            subobj.end != 115
+    ) {
+        DestroyTable(index);
+        free(ss);
+        free(key);
+        return 0;
+    }
+    free(key);
+    key = MakeSmallString("16", 2);
+    JsonElement number = JsonObjectGetValue(&subobj, index, key, 2);
+    if (GetElementType(&number) != NUMBER || number.start != 92 || number.end != 100) {
+        DestroyTable(index);
+        free(ss);
+        free(key);
+        return 0;
+    }
+    DestroyTable(index);
+    free(ss);
+    free(key);
+    return 1;
+}
+
+int Test_JsonArrayElementAt() {
+    char str[] = "{\"array\":[-123.34,\"hello\",{\"a\":\"letter_a\",\"b\":\"letter_b\"},false]}";
+    uint16_t len = (uint16_t) strlen(str);
+    small_char* json = MakeSmallString(str, len);
+    bool pass = true;
+    if (!ValidateSmallJson(json, len)) {
+        free(json);
+        return 0;
+    }
+    small_char* key = MakeSmallString("array", 5);
+    JsonElement element = AsJsonElement(json, len);
+    HashTable* index = IndexJson(json, len);
+    JsonElement array = JsonObjectGetValue(&element, index, key, 5);
+    free(key);
+    if (!IsJsonArray(&array)) {
+        free(json);
+        DestroyTable(index);
+        return 0;
+    }
+    JsonElement number = JsonArrayElementAt(&array, index, 0);
+    uint8_t type = GetPrimitiveType(&number);
+    float val = JsonNumberGet(&number);
+    if (type != NUMBER || val != -123.34f) {
+        free(json);
+        DestroyTable(index);
+        return 0;
+    }
+    JsonElement string = JsonArrayElementAt(&array, index, 1);
+    type = GetPrimitiveType(&string);
+    if (type != STRING) {
+        free(json);
+        DestroyTable(index);
+        return 0;
+    }
+    uint16_t str_len = JsonStringLength(&string);
+    small_char* str_val = (small_char*) malloc((size_t) SmallStringSize(str_len));
+    JsonStringGet(&string, str_val);
+    char* c_str_val = (char*) malloc(str_len + 1);
+    ToCString(str_val, c_str_val, str_len);
+    free(str_val);
+    c_str_val[str_len] = '\0';
+    char expected_str[] = "hello";
+    for (uint16_t i = 0; i < str_len; i++) {
+        if (expected_str[i] != c_str_val[i]) {
+            free(c_str_val);
+            free(json);
+            DestroyTable(index);
+            return 0;
+        }
+    }
+    free(c_str_val);
+    JsonElement boolean = JsonArrayElementAt(&array, index, 3);
+    if (GetPrimitiveType(&boolean) != BOOL || JsonBoolGet(&boolean) != false) {
+        free(json);
+        DestroyTable(index);
+        return 0;
+    }
+    JsonElement subobj = JsonArrayElementAt(&array, index, 2);
+    if (
+            !IsJsonObject(&subobj) ||
+            JsonObjectCountKeys(&subobj, index) != 2 ||
+            JsonObjectKeyAt(&subobj, index, 0).start != 27
+    ) {
+        free(json);
+        DestroyTable(index);
+        return 0;
+    }
+    free(json);
+    DestroyTable(index);
+    return 1;
+}
+
 int main() {
     printf("FromCStringAndToCString: %i\n", Test_FromCStringAndToCString());
     printf("SmallStrCpy: %i\n", Test_SmallStrCpy());
@@ -480,6 +673,8 @@ int main() {
     printf("SmallSubStr: %i\n", Test_SmallSubStr());
     printf("SmallStrIndexOfStr: %i\n", Test_SmallStrIndexOfStr());
     printf("IsNumber: %i\n", Test_IsNumber());
+    printf("IsBool: %i\n", Test_IsBool());
+    printf("HashTable: %i\n", Test_HashTable());
     printf("_NextToken: %i\n", Test_NextToken());
     printf("_GetLastIndexOfNumber: %i\n", Test_GetLastIndexOfNumber());
     printf("_ValidateNumber: %i\n", Test_ValidateNumber());
@@ -488,5 +683,6 @@ int main() {
     printf("_ValidateObject: %i\n", Test_ValidateObject());
     printf("ValidateSmallJson: %i\n", Test_ValidateJson());
     printf("ValidateSmallJsonInvalid: %i\n", Test_ValidateJsonInvalid());
-    printf("IsBool: %i\n", Test_IsBool());
+    printf("JsonObject: %i\n", Test_JsonObjectGetValue());
+    printf("JsonArray: %i\n", Test_JsonArrayElementAt());
 }

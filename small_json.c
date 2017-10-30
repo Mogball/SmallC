@@ -30,7 +30,7 @@ HashTable* IndexJson(
             elements++;
         }
     }
-    HashTable* table = MakeTable((uint16_t) (elements * 1.618f));
+    HashTable* table = MakeTable((uint16_t) (elements * 1.618f), 0.75f);
     DestroyStack(stack);
     Stack* startPos = MakeStack((uint16_t) (elements * 2));
     stack = MakeStack((uint16_t) (elements * 2));
@@ -50,7 +50,7 @@ HashTable* IndexJson(
         } else if (c == R_CRL || c == R_SQR) {
             Pop(stack);
             TablePut(table, Pop(startPos), i);
-        } else if (IsNumeric(c) && Peek(stack) != QUOTE) {
+        } else if ((IsNumeric(c) || c == MINUS) && Peek(stack) != QUOTE) {
             uint16_t end = _GetLastIndexOfNumber(json, i, len);
             TablePut(table, i, end);
             i = end;
@@ -68,13 +68,108 @@ HashTable* IndexJson(
 bool JsonObjectContainsKey(
         const JsonElement* const object,
         const HashTable* const table,
-        const small_char* const key
+        const small_char* const key,
+        const uint16_t key_len
 ) {
-    uint16_t i = (uint16_t) (object->start + 1);
-    while (i < object->end) {
-        uint16_t end = TableGet(table, i);
+    JsonElement value = JsonObjectGetValue(object, table, key, key_len);
+    return value.start != object->end && value.end != object->end;
+}
 
+JsonElement JsonObjectGetValue(
+        const JsonElement* const object,
+        const HashTable* const table,
+        const small_char* const key,
+        const uint16_t key_len
+) {
+    JsonElement value;
+    value.json = object->json;
+    uint16_t i = (uint16_t) (object->start + 1);
+    while (i < object->end - 1) {
+        uint16_t end = TableGet(table, i);
+        if (SegmentsEqual(object->json, key, (uint16_t) (i + 1), end, 0, key_len)) {
+            value.start = (uint16_t) (end + 2);
+            value.end = (uint16_t) (TableGet(table, value.start) + 1);
+            return value;
+        }
+        i = (uint16_t) (TableGet(table, (uint16_t) (end + 2)) + 2);
     }
+    value.start = object->end;
+    value.end = object->end;
+    return value;
+}
+
+uint16_t JsonObjectCountKeys(
+        const JsonElement* const object,
+        const HashTable* const table
+) {
+    uint16_t num_keys = 0;
+    uint16_t i = (uint16_t) (object->start + 1);
+    while (i < object->end - 1) {
+        i = (uint16_t) (TableGet(table, (uint16_t) (TableGet(table, i) + 2)) + 2);
+        num_keys++;
+    }
+    return num_keys;
+}
+
+JsonElement JsonObjectKeyAt(
+        const JsonElement* const object,
+        const HashTable* const table,
+        uint16_t pos
+) {
+    JsonElement key;
+    key.json = object->json;
+    uint16_t i = (uint16_t) (object->start + 1);
+    uint16_t k = 0;
+    while (i < object->end - 1) {
+        uint16_t end = TableGet(table, i);
+        if (k == pos) {
+            key.start = i;
+            key.end = (uint16_t) (end + 1);
+            return key;
+        }
+        k++;
+        i = (uint16_t) (TableGet(table, (uint16_t) (end + 2)) + 2);
+    }
+    key.start = object->end;
+    key.end = object->end;
+    return key;
+}
+
+uint16_t JsonArraySize(
+        const JsonElement* const array,
+        const HashTable* const table
+) {
+    uint16_t size = 0;
+    uint16_t i = (uint16_t) (array->start + 1);
+    while (i < array->end - 1) {
+        i = (uint16_t) (TableGet(table, i) + 2);
+        size++;
+    }
+    return size;
+}
+
+JsonElement JsonArrayElementAt(
+        const JsonElement* const array,
+        const HashTable* const table,
+        const uint16_t pos
+) {
+    JsonElement element;
+    element.json = array->json;
+    uint16_t i = (uint16_t) (array->start + 1);
+    uint16_t k = 0;
+    while (i < array->end - 1) {
+        uint16_t end = TableGet(table, i);
+        if (k == pos) {
+            element.start = i;
+            element.end = (uint16_t) (end + 1);
+            return element;
+        }
+        k++;
+        i = (uint16_t) (end + 2);
+    }
+    element.start = array->end;
+    element.end = array->end;
+    return element;
 }
 
 JsonElement AsJsonElement(
@@ -88,11 +183,31 @@ JsonElement AsJsonElement(
     return element;
 }
 
+uint16_t JsonStringLength(const JsonElement* const string) {
+    return (uint16_t) (string->end - string->start - 2);
+}
+
+void JsonStringGet(const JsonElement* const string, small_char* const ss) {
+    SegmentCopy(ss, string->json, 0, (uint16_t) (string->start + 1), (uint16_t) (string->end - string->start - 2));
+}
+
+float JsonNumberGet(const JsonElement* const number) {
+    return SegmentToNumber(number->json, number->start, number->end);
+}
+
+bool JsonBoolGet(const JsonElement* const boolean) {
+    return (boolean->end - boolean->start) == 4;
+}
+
+bool JsonIsNull(const JsonElement* const null) {
+    return GetPrimitiveType(null) == NIL;
+}
+
 bool IsJsonObject(const JsonElement* const element) {
     if (SmallStrCharAt(element->start, element->json) != L_CRL) {
         return false;
     }
-    if (SmallStrCharAt(element->end, element->json) != R_CRL) {
+    if (SmallStrCharAt((uint16_t) (element->end - 1), element->json) != R_CRL) {
         return false;
     }
     return true;
@@ -102,7 +217,7 @@ bool IsJsonArray(const JsonElement* const element) {
     if (SmallStrCharAt(element->start, element->json) != L_SQR) {
         return false;
     }
-    if (SmallStrCharAt(element->end, element->json) != R_SQR) {
+    if (SmallStrCharAt((uint16_t) (element->end - 1), element->json) != R_SQR) {
         return false;
     }
     return true;
@@ -115,7 +230,7 @@ bool IsJsonString(const JsonElement* const element) {
     if (SmallStrCharAt(element->start, element->json) != QUOTE) {
         return false;
     }
-    if (SmallStrCharAt(element->end, element->json) != QUOTE) {
+    if (SmallStrCharAt((uint16_t) (element->end - 1), element->json) != QUOTE) {
         return false;
     }
     return true;
@@ -185,6 +300,9 @@ bool _ValidateObject(
         const uint16_t len
 ) {
     _NextToken(json, index, len);
+    if (_LookAhead(json, *index, len) == COMMA) {
+        return false;
+    }
     bool done = false;
     bool valid = true;
     uint16_t token;
@@ -195,6 +313,11 @@ bool _ValidateObject(
             done = true;
         } else if (token == COMMA) {
             _NextToken(json, index, len);
+            uint16_t after = _LookAhead(json, *index, len);
+            if (after == COMMA || after == R_CRL) {
+                valid = false;
+                done = true;
+            }
         } else if (token == R_CRL) {
             _NextToken(json, index, len);
             done = true;
@@ -214,6 +337,11 @@ bool _ValidateObject(
                         valid = false;
                         done = true;
                     }
+                    uint16_t after = _LookAhead(json, *index, len);
+                    if (after != COMMA && after != R_CRL) {
+                        valid = false;
+                        done = true;
+                    }
                 }
             }
         }
@@ -227,6 +355,9 @@ bool _ValidateArray(
         const uint16_t len
 ) {
     _NextToken(json, index, len);
+    if (_LookAhead(json, *index, len) == COMMA) {
+        return false;
+    }
     bool done = false;
     bool valid = true;
     while (!done) {
@@ -236,12 +367,22 @@ bool _ValidateArray(
             done = true;
         } else if (next == COMMA) {
             _NextToken(json, index, len);
+            uint16_t after = _LookAhead(json, *index, len);
+            if (after == COMMA || after == R_SQR) {
+                valid = false;
+                done = true;
+            }
         } else if (next == R_SQR) {
             _NextToken(json, index, len);
             done = true;
         } else {
             bool validValue = _ValidateValue(json, index, len);
             if (!validValue) {
+                valid = false;
+                done = true;
+            }
+            uint16_t after = _LookAhead(json, *index, len);
+            if (after != COMMA && after != R_SQR) {
                 valid = false;
                 done = true;
             }

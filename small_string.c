@@ -99,7 +99,7 @@ void SegmentToCString(
     }
 }
 
-void SmallStrCpy(
+void SmallStrCopy(
         small_char* const tgt,
         const small_char* const src,
         const uint16_t src_len
@@ -107,6 +107,18 @@ void SmallStrCpy(
     uint16_t small_len = (uint16_t) SmallStringSize(src_len);
     for (uint16_t i = 0; i < small_len; i++) {
         tgt[i] = (small_char) (tgt[i] & 0x00 | src[i]);
+    }
+}
+
+void SegmentCopy(
+        small_char* const tgt,
+        const small_char* const src,
+        const uint16_t tgt_start,
+        const uint16_t src_start,
+        const uint16_t len
+) {
+    for (uint16_t i = 0; i < len; i++) {
+        SmallStrSetChar(tgt_start + i, SmallStrCharAt(src_start + i, src), tgt);
     }
 }
 
@@ -118,10 +130,10 @@ void SmallStrConcat(
         const uint16_t blen
 ) {
     if (alen == 0) {
-        SmallStrCpy(tgt, b, blen);
+        SmallStrCopy(tgt, b, blen);
         return;
     }
-    SmallStrCpy(tgt, a, alen);
+    SmallStrCopy(tgt, a, alen);
     if (blen == 0) {
         return;
     }
@@ -155,9 +167,9 @@ bool SmallStrEquals(
     return (a[i] & mask) == (b[i] & mask);
 }
 
-bool AreSegmentsEqual(
-        const small_char *const a,
-        const small_char *const b,
+bool SegmentsEqual(
+        const small_char* const a,
+        const small_char* const b,
         const uint16_t a_start,
         const uint16_t a_end,
         const uint16_t b_start,
@@ -358,12 +370,30 @@ bool IsSegmentNumber(
         return false;
     }
     // TODO directly check the small string
-    char* c_str = (char*) malloc(end - start);
+    char* c_str = (char*) malloc((size_t) (end - start) + 1);
+    c_str[end - start] = '\0';
     char* p;
     SegmentToCString(ss, start, end, c_str);
     strtof(c_str, &p);
     free(c_str);
     return *p == '\0';
+}
+
+float SegmentToNumber(
+        const small_char* const ss,
+        const uint16_t start,
+        const uint16_t end
+) {
+    if (end == start) {
+        return 0;
+    }
+    char* c_str = (char*) malloc((size_t) (end - start) + 1);
+    c_str[end - start] = '\0';
+    char* p;
+    SegmentToCString(ss, start, end, c_str);
+    float result = strtof(c_str, &p);
+    free(c_str);
+    return result;
 }
 
 small_char* MakeSmallString(
@@ -399,9 +429,9 @@ bool IsSegmentBool(
         return false;
     }
     if (len == 4) {
-        return AreSegmentsEqual(ss, ssTRUE, start, end, 0, 4);
+        return SegmentsEqual(ss, ssTRUE, start, end, 0, 4);
     } else {
-        return AreSegmentsEqual(ss, ssFALSE, start, end, 0, 5);
+        return SegmentsEqual(ss, ssFALSE, start, end, 0, 5);
     }
 }
 
@@ -424,7 +454,7 @@ bool IsSegmentNull(
     if (end - start != 4) {
         return false;
     }
-    return AreSegmentsEqual(ss, ssNULL, start, end, 0, 4);
+    return SegmentsEqual(ss, ssNULL, start, end, 0, 4);
 }
 
 void WriteAsBits(

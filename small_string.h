@@ -101,7 +101,15 @@ void ToCString(const small_char* ss, char* s, uint16_t len);
  * @param src     the source small string
  * @param src_len the number of characters in the source string
  */
-void SmallStrCpy(small_char* tgt, const small_char* src, uint16_t src_len);
+void SmallStrCopy(small_char* tgt, const small_char* src, uint16_t src_len);
+
+void SegmentCopy(
+        small_char* tgt,
+        const small_char* src,
+        uint16_t tgt_start,
+        uint16_t src_start,
+        uint16_t len
+);
 
 /**
  * Concatenate two small strings into a target small string.
@@ -208,11 +216,14 @@ bool IsLetter(small_char c);
 bool IsNumber(const small_char* ss, uint16_t len);
 bool IsBool(const small_char* ss, uint16_t len);
 bool IsNull(const small_char* ss, uint16_t len);
+
+float SegmentToNumber(const small_char* ss, uint16_t start, uint16_t end);
+
 small_char* MakeSmallString(const char* str, uint16_t len);
 
-bool AreSegmentsEqual(
-        const small_char* a,
-        const small_char* b,
+bool SegmentsEqual(
+        const small_char *a,
+        const small_char *b,
         uint16_t a_start, // inclusive
         uint16_t a_end,   // exclusive
         uint16_t b_start, // inclusive
