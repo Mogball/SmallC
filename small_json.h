@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "small_string.h"
 #include "hashtable.h"
+#include "arraylist.h"
 
 #ifndef SMALLC_SMALL_JSON_H
 #define SMALLC_SMALL_JSON_H
@@ -31,12 +32,6 @@ bool ValidateSmallJson(
         uint16_t len
 );
 
-typedef struct JsonElement {
-    const small_char* json; // backing small string
-    uint16_t start;         // element start index, inclusive
-    uint16_t end;           // element end index, exclusive
-} JsonElement;
-
 /**
  * Build an index consisting of element start positions
  * mapped to element end positions. Constructing the index
@@ -60,11 +55,41 @@ HashTable* IndexJson(const small_char* json, uint16_t len);
  */
 JsonElement AsJsonElement(const small_char* json, uint16_t len);
 
+JsonElement BoolAsJsonElement(bool b, small_char* json);
+
+JsonElement NullAsJsonElement(small_char* json);
+
+JsonElement FloatAsJsonElement(float d, small_char* json, uint16_t len);
+
+JsonElement IntAsJsonElement(int16_t n, small_char* json, uint16_t len);
+
+/**
+ * Wrap a string as a json element. The user should
+ * pass the raw string and the target string
+ * to become the backing JSON string. The user should
+ * pass the character length of the raw string.
+ * @param str  the raw string
+ * @param json the JSON string
+ * @param len  character length of the raw string
+ * @return a JSON element view of the JSON string
+ */
+JsonElement StringAsJsonElement(const small_char* str, small_char* json, uint16_t len);
+
+uint16_t JsonArrayCompileLength(ArrayList* list);
+JsonElement JsonArrayCompile(ArrayList* list, small_char* ss, uint16_t len);
+
+uint16_t JsonObjectCompileLength(HashMap* map);
+JsonElement JsonObjectCompile(HashMap* map, small_char* ss, uint16_t len);
+
 bool IsJsonObject(const JsonElement* element);
 
 bool IsJsonArray(const JsonElement* element);
 
 bool IsJsonString(const JsonElement* element);
+
+bool IsJsonNumberInt(const JsonElement* element);
+
+bool IsJsonNumber(const JsonElement* element);
 
 bool IsJsonPrimitive(const JsonElement* element);
 
@@ -112,7 +137,9 @@ uint16_t JsonStringLength(const JsonElement* string);
 
 void JsonStringGet(const JsonElement* string, small_char* ss);
 
-float JsonNumberGet(const JsonElement* number);
+float JsonFloatGet(const JsonElement* number);
+
+int16_t JsonIntGet(const JsonElement* integer);
 
 bool JsonBoolGet(const JsonElement* boolean);
 

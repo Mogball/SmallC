@@ -3,5 +3,5 @@ project(SmallC)
 
 set(CMAKE_C_STANDARD 99)
 
-set(SOURCE_FILES main.c small_string.h small_string.c small_json.h small_json.c stack.h stack.c hashtable.h hashtable.c)
+set(SOURCE_FILES main.c small_string.h small_string.c small_json.h small_json.c stack.h stack.c hashtable.h hashtable.c arraylist.h arraylist.c structs.h)
 add_executable(SmallC ${SOURCE_FILES})

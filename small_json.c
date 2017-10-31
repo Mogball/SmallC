@@ -183,6 +183,33 @@ JsonElement AsJsonElement(
     return element;
 }
 
+JsonElement BoolAsJsonElement(const bool b, small_char* const json) {
+    SmallStrCopy(json, b ? ssTRUE : ssFALSE, (uint16_t) (b ? 4 : 5));
+    return AsJsonElement(json, (const uint16_t) (b ? 4 : 5));
+}
+
+JsonElement NullAsJsonElement(small_char* const json) {
+    SmallStrCopy(json, ssNULL, 4);
+    return AsJsonElement(json, 4);
+}
+
+JsonElement FloatAsJsonElement(const float d, small_char* const json, const uint16_t len) {
+    StringFromFloat(d, json, len);
+    return AsJsonElement(json, len);
+}
+
+JsonElement IntAsJsonElement(const int16_t n, small_char* const json, const uint16_t len) {
+    StringFromInt(n, json, len);
+    return AsJsonElement(json, len);
+}
+
+JsonElement StringAsJsonElement(const small_char* const str, small_char* const json, uint16_t len) {
+    SmallStrSetChar(0, QUOTE, json);
+    SmallStrSetChar((uint16_t) (len + 1), QUOTE, json);
+    SegmentCopy(json, str, 1, 0, len);
+    return AsJsonElement(json, (const uint16_t) (len + 2));
+}
+
 uint16_t JsonStringLength(const JsonElement* const string) {
     return (uint16_t) (string->end - string->start - 2);
 }
@@ -191,8 +218,76 @@ void JsonStringGet(const JsonElement* const string, small_char* const ss) {
     SegmentCopy(ss, string->json, 0, (uint16_t) (string->start + 1), (uint16_t) (string->end - string->start - 2));
 }
 
-float JsonNumberGet(const JsonElement* const number) {
-    return SegmentToNumber(number->json, number->start, number->end);
+float JsonFloatGet(const JsonElement* const number) {
+    return SegmentToFloat(number->json, number->start, number->end);
+}
+
+int16_t JsonIntGet(const JsonElement* const integer) {
+    return SegmentToInt(integer->json, integer->start, integer->end);
+}
+
+uint16_t JsonArrayCompileLength(ArrayList* const list) {
+    uint16_t len = 2;
+    for (uint16_t i = 0; i < list->size; i++) {
+        JsonElement e = list->list[i];
+        len += e.end - e.start;
+        if (i != list->size - 1) {
+            len++;
+        }
+    }
+    return len;
+}
+
+JsonElement JsonArrayCompile(ArrayList* const list, small_char* ss, const uint16_t len) {
+    uint16_t i = 1;
+    SmallStrSetChar(0, L_SQR, ss);
+    SmallStrSetChar((uint16_t) (len - 1), R_SQR, ss);
+    for (uint16_t p = 0; p < list->size; p++) {
+        JsonElement e = list->list[p];
+        SegmentCopy(ss, e.json, i, e.start, e.end - e.start);
+        i += e.end - e.start;
+        if (p != list->size - 1) {
+            SmallStrSetChar(i, COMMA, ss);
+            i++;
+        }
+    }
+    return AsJsonElement(ss, len);
+}
+
+uint16_t JsonObjectCompileLength(HashMap* const map) {
+    uint16_t len = 2;
+    uint16_t n = 0;
+    for (uint16_t i = 0; i < map->size; i++) {
+        if (map->map[i].key.json == NULL) {
+            continue;
+        }
+        Entry entry = map->map[i];
+        len += entry.key.end - entry.key.start + 2 + entry.el.end - entry.el.start;
+        n++;
+    }
+    if (n != 0) {
+        len--;
+    }
+    return len;
+}
+
+JsonElement JsonObjectCompile(HashMap* map, small_char*ss, const uint16_t len) {
+    uint16_t i = 1;
+    SmallStrSetChar(0, L_CRL, ss);
+    for (uint16_t p = 0; p < map->size; p++) {
+        if (map->map[p].key.json == NULL) {
+            continue;
+        }
+        Entry entry = map->map[p];
+        SegmentCopy(ss, entry.key.json, i, entry.key.start, entry.key.end - entry.key.start);
+        i += entry.key.end - entry.key.start;
+        SmallStrSetChar(i++, COLON, ss);
+        SegmentCopy(ss, entry.el.json, i, entry.el.start, entry.el.end - entry.el.start);
+        i += entry.el.end - entry.el.start;
+        SmallStrSetChar(i++, COMMA, ss);
+    }
+    SmallStrSetChar((uint16_t) (len - 1), R_CRL, ss);
+    return AsJsonElement(ss, len);
 }
 
 bool JsonBoolGet(const JsonElement* const boolean) {
@@ -236,12 +331,20 @@ bool IsJsonString(const JsonElement* const element) {
     return true;
 }
 
+bool IsJsonNumberInt(const JsonElement* const element) {
+    return IsSegmentInt(element->json, element->start, element->end);
+}
+
+bool IsJsonNumber(const JsonElement* const element) {
+    return IsSegmentFloat(element->json, element->start, element->end);
+}
+
 bool IsJsonPrimitive(const JsonElement* const element) {
     small_char c = SmallStrCharAt(element->start, element->json);
     if (c == L_CRL || c == R_CRL || c == L_SQR || c == R_SQR) {
         return false;
     }
-    if (IsSegmentNumber(element->json, element->start, element->end)) {
+    if (IsJsonNumber(element)) {
         return true;
     }
     if (IsJsonString(element)) {
@@ -257,7 +360,7 @@ bool IsJsonPrimitive(const JsonElement* const element) {
 }
 
 uint8_t GetPrimitiveType(const JsonElement* const element) {
-    if (IsSegmentNumber(element->json, element->start, element->end)) {
+    if (IsSegmentFloat(element->json, element->start, element->end)) {
         return NUMBER;
     }
     if (IsJsonString(element)) {

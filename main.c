@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <printf.h>
+#include <math.h>
 #include "small_string.h"
 #include "small_json.h"
 
@@ -612,7 +613,7 @@ int Test_JsonArrayElementAt() {
     }
     JsonElement number = JsonArrayElementAt(&array, index, 0);
     uint8_t type = GetPrimitiveType(&number);
-    float val = JsonNumberGet(&number);
+    float val = JsonFloatGet(&number);
     if (type != NUMBER || val != -123.34f) {
         free(json);
         DestroyTable(index);
@@ -663,6 +664,101 @@ int Test_JsonArrayElementAt() {
     return 1;
 }
 
+int Test_JsonArrayCompile() {
+    int16_t e1 = -19673;
+    float e2 = -423.4f;
+    small_char* e3 = MakeSmallString("someval", 7);
+    uint16_t l1 = IntCharLength(e1);
+    uint16_t l2 = FloatCharLength(e2);
+    uint16_t l3 = 7;
+    small_char* str1 = MakeString(l1);
+    small_char* str2 = MakeString(l2);
+    small_char* str3 = MakeString(l3);
+    JsonElement je1 = IntAsJsonElement(e1, str1, l1);
+    JsonElement je2 = FloatAsJsonElement(e2, str2, l2);
+    JsonElement je3 = StringAsJsonElement(e3, str3, l3);
+    ArrayList* list = MakeList(3);
+    ListAppend(list, je1);
+    ListAppend(list, je2);
+    ListAppend(list, je3);
+    uint16_t len = JsonArrayCompileLength(list);
+    small_char* ss = MakeString(len);
+    JsonElement arr = JsonArrayCompile(list, ss, len);
+    char* cstr = (char*) malloc(len + 1);
+    ToCString(arr.json, cstr, len);
+    cstr[len] = '\0';
+    char expected[] = "[-19673,-423.399994,\"someval\"]";
+    bool pass = true;
+    for (uint16_t i = 0; i < len; i++) {
+        if (expected[i] != cstr[i]) {
+            pass = false;
+        }
+    }
+    if (!ValidateSmallJson(arr.json, arr.end - arr.start)) {
+        pass = false;
+    }
+    free(cstr);
+    free(ss);
+    free(e3);
+    free(str1);
+    free(str2);
+    free(str3);
+    DestroyList(list);
+    return pass;
+}
+
+int Test_JsonObjectCompile() {
+    small_char* ss1 = MakeSmallString("\"key1\"", 6);
+    small_char* ss2 = MakeSmallString("\"key2\"", 6);
+    small_char* ss3 = MakeSmallString("\"key3\"", 6);
+    small_char* sval1 = MakeSmallString("\"value1\"", 8);
+    small_char* sval2 = MakeSmallString("\"value2\"", 8);
+    small_char* sval3 = MakeSmallString("\"value3\"", 8);
+    JsonElement key1 = AsJsonElement(ss1, 6);
+    JsonElement key2 = AsJsonElement(ss2, 6);
+    JsonElement key3 = AsJsonElement(ss3, 6);
+    JsonElement value1 = AsJsonElement(sval1, 8);
+    JsonElement value2 = AsJsonElement(sval2, 8);
+    JsonElement value3 = AsJsonElement(sval3, 8);
+    HashMap* map = MakeMap(5, 0.75f);
+    MapPut(map, key1, value1);
+    MapPut(map, key2, value2);
+    MapPut(map, key3, value3);
+    bool pass = true;
+    if (MapGet(map, key1).json != value1.json) {
+        pass = false;
+    }
+    if (MapGet(map, key2).json != value2.json) {
+        pass = false;
+    }
+    if (MapGet(map, key3).json != value3.json) {
+        pass = false;
+    }
+    uint16_t object_len = JsonObjectCompileLength(map);
+    small_char* ss = MakeString(object_len);
+    JsonElement object = JsonObjectCompile(map, ss, object_len);
+    char* cstr = (char*) malloc(object_len);
+    ToCString(object.json, cstr, object_len);
+    char expected[] = "{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"value3\"}";
+    for (uint16_t i = 0; i < object_len; i++) {
+        if (expected[i] != cstr[i]) {
+            pass = false;
+            break;
+        }
+    }
+    if (!ValidateSmallJson(object.json, object.end - object.start));
+    free(cstr);
+    DestroyMap(map);
+    free(ss);
+    free(sval1);
+    free(sval2);
+    free(sval3);
+    free(ss1);
+    free(ss2);
+    free(ss3);
+    return pass;
+}
+
 int main() {
     printf("FromCStringAndToCString: %i\n", Test_FromCStringAndToCString());
     printf("SmallStrCpy: %i\n", Test_SmallStrCpy());
@@ -685,4 +781,6 @@ int main() {
     printf("ValidateSmallJsonInvalid: %i\n", Test_ValidateJsonInvalid());
     printf("JsonObject: %i\n", Test_JsonObjectGetValue());
     printf("JsonArray: %i\n", Test_JsonArrayElementAt());
+    printf("JsonArrayCompile: %i\n", Test_JsonArrayCompile());
+    printf("JsonObjectCompile: %i\n", Test_JsonObjectCompile());
 }

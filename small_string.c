@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
+#include <stdio.h>
 
 #include "small_string.h"
 
@@ -358,11 +360,11 @@ bool IsNumber(
     if (ss == NULL || *ss == 0x00) {
         return false;
     }
-    return IsSegmentNumber(ss, 0, len);
+    return IsSegmentFloat(ss, 0, len);
 }
 
-bool IsSegmentNumber(
-        const small_char* const ss,
+bool IsSegmentFloat(
+        const small_char *const ss,
         const uint16_t start,
         const uint16_t end
 ) {
@@ -379,10 +381,31 @@ bool IsSegmentNumber(
     return *p == '\0';
 }
 
-float SegmentToNumber(
+bool IsSegmentInt(
         const small_char* const ss,
         const uint16_t start,
         const uint16_t end
+) {
+    if (end == start) {
+        return false;
+    }
+    for (uint16_t i = start; i < end; i++) {
+        small_char c = SmallStrCharAt(i, ss);
+        if (c == MINUS) {
+            if (i != start) {
+                return false;
+            }
+        } else if (!IsNumeric(c)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+float SegmentToFloat(
+        const small_char *ss,
+        uint16_t start,
+        uint16_t end
 ) {
     if (end == start) {
         return 0;
@@ -396,6 +419,73 @@ float SegmentToNumber(
     return result;
 }
 
+int16_t SegmentToInt(
+        const small_char *ss,
+        uint16_t start,
+        uint16_t end
+) {
+    if (end == start) {
+        return 0;
+    }
+    int n = 0;
+    uint16_t i = start;
+    bool neg = false;
+    if (SmallStrCharAt(0, ss) == MINUS) {
+        neg = true;
+        i++;
+    }
+    for (; i < end; i++) {
+        n = n * 10 + (SmallStrCharAt(i, ss) & 0x0f);
+    }
+    if (neg) {
+        n = -n;
+    }
+    return (int16_t) n;
+}
+
+uint16_t IntCharLength(const int16_t n) {
+    if (n == 0) {
+        return 1;
+    }
+    int len = n < 0 ? 1 : 0;
+    len += floor(log10(abs(n))) + 1;
+    return (uint16_t) len;
+}
+
+void StringFromInt(
+        int16_t n,
+        small_char* const ss,
+        const uint16_t len
+) {
+    uint16_t i = 0;
+    uint8_t neg = 1;
+    if (n < 0) {
+        SmallStrSetChar(0, MINUS, ss);
+        n = -n;
+        i++;
+        neg = 0;
+    }
+    for (; i < len; i++) {
+        SmallStrSetChar((const uint16_t) (len - i - neg), (const small_char) ((n % 10) | 0x20), ss);
+        n /= 10;
+    }
+}
+
+uint16_t FloatCharLength(const float d) {
+    return snprintf(NULL, 0, "%f", d);
+}
+
+void StringFromFloat(
+        const float d,
+        small_char* const ss,
+        const uint16_t len
+) {
+    char* c_str = (char*) malloc(len + 1);
+    snprintf(c_str, len + 1, "%f", d);
+    FromCString(ss, c_str, len);
+    free(c_str);
+}
+
 small_char* MakeSmallString(
         const char* const str,
         const uint16_t len
@@ -403,6 +493,14 @@ small_char* MakeSmallString(
     small_char* ss = (small_char*) malloc((size_t) SmallStringSize(len));
     FromCString(ss, str, len);
     return ss;
+}
+
+small_char* MakeString(uint16_t len) {
+    return (small_char*) malloc((size_t) SmallStringSize((len)));
+}
+
+void DestroyString(small_char* ss) {
+    free(ss);
 }
 
 bool IsBool(

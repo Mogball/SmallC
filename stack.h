@@ -2,14 +2,9 @@
 #define SMALLC_STACK_H
 
 #include <stdbool.h>
+#include "structs.h"
 
 #define EMPTY 0xff
-
-typedef struct Stack {
-    int16_t     top;
-    uint16_t    capacity;
-    uint16_t* array;
-} Stack;
 
 Stack* MakeStack(uint16_t capacity);
 

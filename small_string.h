@@ -5,22 +5,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-#define small_size 6
-#define int_size 8
+#include "structs.h"
 
 #define AssignBit(A, k) ((A)[(k)/int_size] |=  (1 << ((k)%int_size)))
 #define ClearBit(A, k)  ((A)[(k)/int_size] &= ~(1 << ((k)%int_size)))
 #define GetBit(A, k)    ((A)[(k)/int_size] &   (1 << ((k)%int_size)))
 #define SetBit(A, k, b) b ? AssignBit(A, k) : ClearBit(A, k)
-
-/**
- * Obtain the size in bytes of a small string given the
- * number of 8-bit characters it would represent. The
- * value is rounded to the nearest size of the small
- * string element defined below.
- */
-#define SmallStringSize(n) (((n) * small_size + int_size - 1) / int_size)
 
 /**
  * Gets the 6-bit representation of a character.
@@ -39,13 +29,6 @@ void BitsForChar(const char* c, uint8_t* bits);
  * @param bits a 6-bit character between 0x00 and 0x3f
  */
 void CharForBits(char* c, const uint8_t* bits);
-
-/**
- * The element of a small string. Small string
- * 6-bit characters are inserted into an array
- * of these elements.
- */
-typedef uint8_t small_char;
 
 #define L_CRL 0x3c
 #define R_CRL 0x3e
@@ -217,9 +200,19 @@ bool IsNumber(const small_char* ss, uint16_t len);
 bool IsBool(const small_char* ss, uint16_t len);
 bool IsNull(const small_char* ss, uint16_t len);
 
-float SegmentToNumber(const small_char* ss, uint16_t start, uint16_t end);
+float SegmentToFloat(const small_char* ss, uint16_t start, uint16_t end);
+
+int16_t SegmentToInt(const small_char* ss, uint16_t start, uint16_t end);
+
+uint16_t IntCharLength(int16_t n);
+void StringFromInt(int16_t n, small_char* ss, uint16_t len);
+
+uint16_t FloatCharLength(float d);
+void StringFromFloat(float d, small_char* ss, uint16_t len);
 
 small_char* MakeSmallString(const char* str, uint16_t len);
+
+small_char* MakeString(uint16_t len);
 
 bool SegmentsEqual(
         const small_char *a,
@@ -230,7 +223,13 @@ bool SegmentsEqual(
         uint16_t b_end    // exclusive
 );
 
-bool IsSegmentNumber(
+bool IsSegmentInt(
+        const small_char* ss,
+        uint16_t start,
+        uint16_t end
+);
+
+bool IsSegmentFloat(
         const small_char* ss,
         uint16_t start,
         uint16_t end
